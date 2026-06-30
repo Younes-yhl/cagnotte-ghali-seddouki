@@ -2,6 +2,7 @@ const GOAL = 10000;
 const BIN_ID = '6a430ac3f5f4af5e294497f7';
 const API_KEY = '$2a$10$22MMJ.ZlFFidVgdrnUVd3uuUks2LlxEqqWIxl5/R78U86mahKgU9m';
 const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+const PASSWORD = '6712367';
 
 let total = 0;
 let people = 0;
@@ -16,7 +17,43 @@ const nameInput   = document.getElementById('name');
 const amountInput = document.getElementById('amount');
 const addBtn      = document.getElementById('add');
 
-// ── Charger les contributions depuis JSONBin ──
+// ── Bouton réinitialiser ──
+
+const resetBtn = document.createElement('button');
+resetBtn.textContent = '🔄 Réinitialiser la cagnotte';
+resetBtn.style.cssText = `
+  display: block;
+  margin: 1rem auto 0;
+  background: none;
+  border: 1.5px solid #e74c3c;
+  color: #e74c3c;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.6rem 1.2rem;
+  border-radius: 10px;
+  cursor: pointer;
+`;
+document.querySelector('footer').before(resetBtn);
+
+resetBtn.addEventListener('click', async () => {
+  const pwd = prompt('Mot de passe :');
+  if (pwd !== PASSWORD) { alert('Mot de passe incorrect.'); return; }
+  if (!confirm('Réinitialiser toutes les contributions ?')) return;
+
+  resetBtn.disabled = true;
+  resetBtn.textContent = 'Réinitialisation...';
+  contributions = [];
+  total = 0;
+  people = 0;
+  await save();
+  update();
+  renderHistory();
+  resetBtn.disabled = false;
+  resetBtn.textContent = '🔄 Réinitialiser la cagnotte';
+});
+
+// ── Charger depuis JSONBin ──
 
 async function load() {
   historyEl.innerHTML = '<p>Chargement...</p>';
@@ -48,6 +85,21 @@ async function save() {
   });
 }
 
+// ── Supprimer une contribution ──
+
+async function removeContribution(index) {
+  const pwd = prompt('Mot de passe pour supprimer :');
+  if (pwd !== PASSWORD) { alert('Mot de passe incorrect.'); return; }
+
+  contributions.splice(index, 1);
+  total  = contributions.reduce((sum, c) => sum + c.amount, 0);
+  people = contributions.length;
+
+  await save();
+  update();
+  renderHistory();
+}
+
 // ── Rendu de l'historique ──
 
 function renderHistory() {
@@ -56,12 +108,24 @@ function renderHistory() {
     historyEl.innerHTML = '<p>Aucune contribution.</p>';
     return;
   }
-  [...contributions].reverse().forEach(c => {
+  [...contributions].reverse().forEach((c, i) => {
+    const realIndex = contributions.length - 1 - i;
     const card = document.createElement('div');
     card.className = 'contribution';
     card.innerHTML = `
       <span class="name">👤 ${c.name}</span>
-      <span class="amount">+${c.amount.toLocaleString('fr-FR')} DH</span>
+      <span style="display:flex; align-items:center; gap:10px;">
+        <span class="amount">+${c.amount.toLocaleString('fr-FR')} DH</span>
+        <button onclick="removeContribution(${realIndex})" style="
+          background: none;
+          border: none;
+          cursor: pointer;
+          font-size: 1.1rem;
+          color: #e74c3c;
+          padding: 0;
+          line-height: 1;
+        ">🗑️</button>
+      </span>
     `;
     historyEl.appendChild(card);
   });
