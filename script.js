@@ -1,4 +1,8 @@
 const GOAL = 10000;
+const BIN_ID = '6a430ac3f5f4af5e294497f7';
+const API_KEY = '$2a$10$22MMJ.ZlFFidVgdrnUVd3uuUks2LlxEqqWIxl5/R78U86mahKgU9m';
+const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
 let total = 0;
 let people = 0;
 let contributions = [];
@@ -12,19 +16,35 @@ const nameInput   = document.getElementById('name');
 const amountInput = document.getElementById('amount');
 const addBtn      = document.getElementById('add');
 
-// ── Sauvegarde & chargement (localStorage) ──
+// ── Charger les contributions depuis JSONBin ──
 
-function save() {
-  localStorage.setItem('cagnotte_contributions', JSON.stringify(contributions));
+async function load() {
+  historyEl.innerHTML = '<p>Chargement...</p>';
+  try {
+    const res = await fetch(URL + '/latest', {
+      headers: { 'X-Master-Key': API_KEY }
+    });
+    const data = await res.json();
+    contributions = data.record.contributions || [];
+    total  = contributions.reduce((sum, c) => sum + c.amount, 0);
+    people = contributions.length;
+    update();
+    renderHistory();
+  } catch (e) {
+    historyEl.innerHTML = '<p>Erreur de chargement.</p>';
+  }
 }
 
-function load() {
-  const data = localStorage.getItem('cagnotte_contributions');
-  if (!data) return;
-  contributions = JSON.parse(data);
-  contributions.forEach(c => {
-    total  += c.amount;
-    people += 1;
+// ── Sauvegarder sur JSONBin ──
+
+async function save() {
+  await fetch(URL, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Master-Key': API_KEY
+    },
+    body: JSON.stringify({ contributions })
   });
 }
 
@@ -32,13 +52,10 @@ function load() {
 
 function renderHistory() {
   historyEl.innerHTML = '';
-
   if (contributions.length === 0) {
     historyEl.innerHTML = '<p>Aucune contribution.</p>';
     return;
   }
-
-  // Les plus récentes en premier
   [...contributions].reverse().forEach(c => {
     const card = document.createElement('div');
     card.className = 'contribution';
@@ -62,24 +79,30 @@ function update() {
 
 // ── Ajout d'une contribution ──
 
-function addContribution() {
+async function addContribution() {
   const name   = nameInput.value.trim();
   const amount = parseInt(amountInput.value);
 
-  if (!name)              { shake(nameInput);   return; }
+  if (!name)               { shake(nameInput);   return; }
   if (!amount || amount <= 0) { shake(amountInput); return; }
+
+  addBtn.disabled = true;
+  addBtn.textContent = 'Envoi...';
 
   contributions.push({ name, amount });
   total  += amount;
   people += 1;
 
-  save();
+  await save();
   renderHistory();
   update();
 
   nameInput.value   = '';
   amountInput.value = '';
   nameInput.focus();
+
+  addBtn.disabled = false;
+  addBtn.textContent = 'Contribuer';
 
   if (total >= GOAL) celebrate();
 }
@@ -149,5 +172,3 @@ amountInput.addEventListener('keydown', (e) => {
 // ── Initialisation ──
 
 load();
-update();
-renderHistory();
